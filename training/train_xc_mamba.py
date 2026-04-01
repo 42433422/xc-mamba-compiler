@@ -89,6 +89,7 @@ def main() -> None:
     ap.add_argument("--max_len", type=int, default=0, help="override model max sequence length")
     ap.add_argument("--curriculum_phase", choices=["base", "feature", "mix"], default="mix")
     ap.add_argument("--feature_balanced_sampling", action="store_true")
+    ap.add_argument("--fp16", action="store_true", help="enable fp16 training")
     ap.add_argument("--dry_run", action="store_true")
     args = ap.parse_args()
 
@@ -129,9 +130,10 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     tokenizer = AutoTokenizer.from_pretrained(cfg["name"], trust_remote_code=True)
+    load_dtype = torch.float16 if args.fp16 else torch.float32
     model = AutoModelForCausalLM.from_pretrained(
         cfg["name"],
-        torch_dtype=torch.float16,
+        torch_dtype=load_dtype,
         device_map="auto",
         trust_remote_code=True,
     )
@@ -150,7 +152,7 @@ def main() -> None:
         learning_rate=args.lr,
         logging_steps=10,
         save_steps=200,
-        fp16=True,
+        fp16=bool(args.fp16),
     )
     trainer = Trainer(
         model=model,

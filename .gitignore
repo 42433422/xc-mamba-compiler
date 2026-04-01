@@ -61,3 +61,6 @@ Thumbs.db
 # Temp files
 Untitled
 *.tmp
+
+# Git submodules / empty dirs
+XC-Language-Compiler/
