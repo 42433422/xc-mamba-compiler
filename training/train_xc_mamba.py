@@ -4,6 +4,7 @@
 XC→ASM 使用 Mamba 架构训练入口（单卡友好）。
 - 复用现有 JSONL 数据与课程学习筛选
 - 默认模型: state-spaces/mamba-130m-hf
+- 默认 batch_size=1、max_len=512、fp16 关闭，适配常见 8GB 显存；大显存可用 --max_len 0 与 --fp16。
 """
 
 from __future__ import annotations
@@ -82,12 +83,22 @@ def main() -> None:
     ap.add_argument("--jsonl", type=str, default=str(ROOT / "dataset" / "xc_asm_train.jsonl"))
     ap.add_argument("--hierarchical", action="store_true")
     ap.add_argument("--model", choices=["mamba-130m", "mamba-370m"], default="mamba-130m")
-    ap.add_argument("--output_dir", type=str, default=str(ROOT / "models" / "xc-asm-mamba"))
+    ap.add_argument("--output_dir", type=str, default=str(ROOT / "models" / "JNCC"))
     ap.add_argument("--epochs", type=int, default=2)
-    ap.add_argument("--batch_size", type=int, default=2)
+    ap.add_argument("--batch_size", type=int, default=1)
     ap.add_argument("--lr", type=float, default=2e-4)
-    ap.add_argument("--max_len", type=int, default=0, help="override model max sequence length")
-    ap.add_argument("--curriculum_phase", choices=["base", "feature", "mix"], default="mix")
+    ap.add_argument(
+        "--max_len",
+        type=int,
+        default=512,
+        help="序列长度上限；0 表示使用模型配置中的 max_len（如 4096），8GB 卡建议保持默认 512",
+    )
+    ap.add_argument(
+        "--curriculum_phase",
+        choices=["base", "feature", "mix"],
+        default="base",
+        help="base=仅 easy 子集，适合先跑通；mix=全难度",
+    )
     ap.add_argument("--feature_balanced_sampling", action="store_true")
     ap.add_argument("--fp16", action="store_true", help="enable fp16 training")
     ap.add_argument("--dry_run", action="store_true")
@@ -163,6 +174,21 @@ def main() -> None:
     trainer.train()
     model.save_pretrained(str(out_dir / "final"))
     tokenizer.save_pretrained(str(out_dir / "final"))
+    try:
+        import importlib.metadata as im
+
+        repro = {
+            "torch": getattr(torch, "__version__", ""),
+            "transformers": im.version("transformers"),
+            "datasets": im.version("datasets"),
+            "accelerate": im.version("accelerate"),
+            "base_model": cfg["name"],
+        }
+        (out_dir / "final" / "jncc_repro.json").write_text(
+            json.dumps(repro, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
     print(f"[done] model saved: {out_dir / 'final'}")
 
 

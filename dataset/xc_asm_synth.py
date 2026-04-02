@@ -131,6 +131,19 @@ def gen_switch_case(rng: random.Random) -> str:
 }}"""
 
 
+def gen_array_simulated(rng: random.Random) -> str:
+    """固定槽位模拟小数组（无指针/IndexAccess），Oracle 可编译。"""
+    n = rng.randint(2, 5)
+    vals = [rng.randint(0, 4) for _ in range(n)]
+    lines = ["# {"]
+    for i, v in enumerate(vals):
+        lines.append(f"    $a{i}: int = {v}")
+    last = " + ".join(f"a{i}" for i in range(n))
+    lines.append(f"    ^ {last}")
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def gen_union_bitfield_fnptr(rng: random.Random) -> str:
     # 这类特性先用预处理桥接，语法可生成，后端可能不支持（用于 unsupported_reason 统计）
     return """⟨R union U { int i; float f; };
@@ -147,6 +160,7 @@ GENERATOR_SPECS: List[Tuple[Callable[[random.Random], str], List[str], str]] = [
     (gen_if_else, ["if"], "easy"),
     (gen_while_sum, ["while"], "easy"),
     (gen_for_loop, ["for"], "easy"),
+    (gen_array_simulated, ["array_sim", "multi_slot"], "easy"),
     (gen_func_call, ["func_call"], "medium"),
     (gen_compare_chain, ["if", "compare"], "medium"),
     (gen_pointer_malloc, ["pointer", "malloc"], "medium"),

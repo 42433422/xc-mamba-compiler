@@ -1,60 +1,63 @@
 {
-  "attempts": 609,
-  "unique_rows": 200,
+  "attempts": 183,
+  "unique_rows": 100,
   "files": {
-    "train": "e:\\X语音\\dataset\\xc_asm_train.jsonl",
-    "val": "e:\\X语音\\dataset\\xc_asm_val.jsonl",
-    "test": "e:\\X语音\\dataset\\xc_asm_test.jsonl"
+    "train": "E:\\X语音\\dataset\\xc_asm_train.jsonl",
+    "val": "E:\\X语音\\dataset\\xc_asm_val.jsonl",
+    "test": "E:\\X语音\\dataset\\xc_asm_test.jsonl"
   },
   "stats": {
     "train": {
-      "count": 180,
+      "count": 90,
       "difficulty": {
-        "easy": 109,
-        "medium": 65,
+        "easy": 59,
+        "medium": 25,
         "hard": 6
       },
       "tags": {
-        "if": 92,
-        "string_lib": 1,
-        "compare": 44,
-        "pointer": 8,
-        "malloc": 8,
-        "arith": 46,
-        "func_call": 12,
         "for": 7,
-        "switch": 4,
+        "array_sim": 12,
+        "multi_slot": 12,
+        "arith": 19,
+        "if": 23,
+        "compare": 10,
+        "string_lib": 1,
+        "pointer": 7,
+        "malloc": 7,
         "union": 1,
         "bitfield": 1,
         "fnptr_typedef": 1,
         "while": 8,
+        "func_call": 7,
+        "switch": 4,
         "file_io": 1
       },
       "unsupported": 6
     },
     "val": {
-      "count": 10,
+      "count": 5,
       "difficulty": {
-        "easy": 8,
-        "medium": 2
+        "easy": 4,
+        "medium": 1
       },
       "tags": {
-        "if": 7,
-        "compare": 2,
-        "arith": 3
+        "arith": 1,
+        "array_sim": 2,
+        "multi_slot": 2,
+        "if": 2,
+        "compare": 1
       },
       "unsupported": 0
     },
     "test": {
-      "count": 10,
+      "count": 5,
       "difficulty": {
-        "medium": 4,
-        "easy": 6
+        "easy": 5
       },
       "tags": {
-        "if": 5,
-        "compare": 4,
-        "arith": 4,
+        "if": 2,
+        "array_sim": 2,
+        "multi_slot": 2,
         "for": 1
       },
       "unsupported": 0

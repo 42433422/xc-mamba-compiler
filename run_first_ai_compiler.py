@@ -5,9 +5,12 @@
 
 用法:
   python run_first_ai_compiler.py prepare --count 500
-  python run_first_ai_compiler.py train --epochs 1 --batch_size 1
+  python run_first_ai_compiler.py train
+  # train 默认: batch_size=1, max_len=512, phase=base, 无 fp16（8GB 稳妥）；全量用 --phase mix --max_len 0
   python run_first_ai_compiler.py gate
   python run_first_ai_compiler.py demo   # 仅 Oracle 对照，不加载神经网络
+  python jncc_cli.py compile --backend oracle -f your.xc --json-log report.json
+  python dataset/jncc_corpus_presets.py apply medium
 """
 from __future__ import annotations
 
@@ -76,6 +79,8 @@ def cmd_train(args: argparse.Namespace) -> int:
             "--curriculum_phase",
             args.phase,
         ]
+        + ["--max_len", str(args.max_len)]
+        + (["--fp16"] if args.fp16 else [])
         + (["--feature_balanced_sampling"] if args.balanced else [])
         + (["--hierarchical"] if args.hierarchical else [])
     )
@@ -112,6 +117,8 @@ def cmd_demo(_: argparse.Namespace) -> int:
     print("unsupported_reason:", r.get("unsupported_reason"))
     print("\n训练完成后，用同一 XC 测试 AI:")
     print(f'  python inference/xc_compile_ml.py --model "{MODEL_OUT}" --xc \'{sample}\'')
+    print("或统一入口:")
+    print(f'  python jncc_cli.py compile --backend hybrid --model "{MODEL_OUT}" --xc \'{sample}\'')
     return 0
 
 
@@ -127,9 +134,16 @@ def main() -> int:
     p1.add_argument("--model", choices=["mamba-130m", "mamba-370m"], default="mamba-130m")
     p1.add_argument("--out_name", type=str, default="JNCC")
     p1.add_argument("--epochs", type=int, default=2)
-    p1.add_argument("--batch_size", type=int, default=2)
+    p1.add_argument("--batch_size", type=int, default=1)
     p1.add_argument("--lr", type=float, default=2e-4)
-    p1.add_argument("--phase", choices=["base", "feature", "mix"], default="mix")
+    p1.add_argument(
+        "--max_len",
+        type=int,
+        default=512,
+        help="0 表示交给 train_xc_mamba 使用模型默认长度(4096)",
+    )
+    p1.add_argument("--fp16", action="store_true", help="开启半精度（需与 torch/transformers 版本匹配）")
+    p1.add_argument("--phase", choices=["base", "feature", "mix"], default="base")
     p1.add_argument("--balanced", action="store_true")
     p1.add_argument("--hierarchical", action="store_true")
 

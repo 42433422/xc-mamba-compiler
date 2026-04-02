@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import random
 import subprocess
 import tempfile
 from pathlib import Path
@@ -91,6 +92,35 @@ def assemble_check(asm: str, extra_flags: Optional[list] = None) -> Tuple[bool, 
         if not out_o.is_file():
             return False, "no object file"
         return True, "assembled"
+
+
+def mutate_xc_source_light(xc: str, rng: random.Random) -> str:
+    """
+    对 XC 做轻量合法扰动（用于 fuzz / 对抗池）：改一个整数字面量 ±1，或插入空行。
+    不改变结构块括号。
+    """
+    lines = xc.splitlines()
+    if not lines:
+        return xc
+    idxs = [i for i, ln in enumerate(lines) if any(c.isdigit() for c in ln) and "$" in ln]
+    if idxs and rng.random() < 0.85:
+        i = rng.choice(idxs)
+        ln = lines[i]
+        out = []
+        changed = False
+        for ch in ln:
+            if ch.isdigit() and not changed:
+                d = int(ch)
+                nd = (d + rng.choice([-1, 1])) % 10
+                out.append(str(nd))
+                changed = True
+            else:
+                out.append(ch)
+        lines[i] = "".join(out)
+    else:
+        insert_at = rng.randint(0, len(lines))
+        lines.insert(insert_at, "    // fuzz")
+    return "\n".join(lines) + ("\n" if xc.endswith("\n") else "")
 
 
 def corrupt_asm_negative_sample(asm: str) -> str:

@@ -1,0 +1,14 @@
+# JNCC 训练/推理建议版本（可按本机 CUDA 调整 torch 来源）
+torch>=2.1.0
+transformers>=4.41.0
+datasets>=4.6.0
+accelerate>=1.0.0
+peft>=0.11.0
+safetensors>=0.4.0
+sentencepiece>=0.1.99
+
+# Mamba CUDA 快路径（Transformers 5.x）：优先尝试 HF 预编译内核；Windows 上常无匹配 wheel，见 tools/jncc_probe_mamba_cuda.py
+kernels>=0.12.0
+
+# 官方 mamba-ssm（文档写明以 Linux 为主；Windows 需 CUDA Toolkit 含 nvcc + VS C++ 从源码编，常失败）
+# pip install mamba-ssm[causal-conv1d] --no-build-isolation
