@@ -1,0 +1,44 @@
+{
+  "dataset": "E:\\X语音\\dataset\\xc_asm_all.jsonl",
+  "rows": 200,
+  "metrics_reference": "E:\\X语音\\dataset\\evaluation_spec.json",
+  "A_gold_qemu_ok_rate": 1.0,
+  "A_oracle_self_runtime_match_rate": 1.0,
+  "B_oracle_self_normalized_asm_match_rate": 1.0,
+  "A_model_runtime_match_rate": null,
+  "B_model_normalized_asm_match_rate": null,
+  "model_pred_report_missing": true,
+  "source_reports": {
+    "gold": "E:\\X语音\\reports\\linux_exec_validate_gold_full.json",
+    "oracle_self": "E:\\X语音\\reports\\linux_exec_validate_oracle_self_xc_asm_all.json",
+    "model": "E:\\X语音\\reports\\linux_exec_validate_model_xc_asm_all.json"
+  },
+  "raw_summaries": {
+    "gold": {
+      "dataset": "/work/dataset/xc_asm_all.jsonl",
+      "rows": 200,
+      "gold_qemu_ok": 200,
+      "gold_qemu_ok_rate": 1.0,
+      "wall_sec": 17.451,
+      "toolchain": {
+        "gcc": "/usr/bin/riscv64-linux-gnu-gcc",
+        "qemu": "/usr/bin/qemu-riscv64"
+      }
+    },
+    "oracle_self_pred_equals_oracle": {
+      "dataset": "reports/pred_oracle_self_xc_asm_all.jsonl",
+      "rows_total": 200,
+      "backend_label": "eval_pipeline",
+      "evaluation_spec": "/work/dataset/evaluation_spec.json",
+      "oracle_runtime_ok_rate": 1.0,
+      "pred_runtime_ok_rate": 1.0,
+      "runtime_match_rate": 1.0,
+      "toolchain": {
+        "gcc": "/usr/bin/riscv64-linux-gnu-gcc",
+        "qemu": "/usr/bin/qemu-riscv64"
+      },
+      "normalized_asm_match_rate": 1.0
+    },
+    "model_vs_oracle": null
+  }
+}

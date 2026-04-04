@@ -5,17 +5,8 @@ from __future__ import annotations
 import random
 from typing import Any, List, Tuple
 
+from compiler.xc_asm_prompt import build_prompt
 from xc_asm_validate import assemble_check, basic_asm_sanity
-
-
-def build_prompt(xc_source: str, hierarchical: bool) -> str:
-    instr = "将 XC 翻译为 RISC-V64 GNU 汇编，只输出汇编，不要解释。"
-    inp = xc_source.strip()
-    if hierarchical:
-        lines = [ln for ln in inp.splitlines() if ln.strip()]
-        hier = ["<<<PROGRAM>>>"] + [f"<<<STMT_{i}>>>{ln}" for i, ln in enumerate(lines)]
-        inp = "\n".join(hier)
-    return f"{instr}\n\n### 输入\n{inp}\n\n### 汇编\n"
 
 
 def generate_asm_attempts(
@@ -41,7 +32,12 @@ def generate_asm_attempts(
         torch.manual_seed(seed)
 
     device = "cpu" if no_cuda or not torch.cuda.is_available() else "cuda"
-    tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    # Some local tokenizer.json variants fail to load as a fast tokenizer.
+    # Fall back to slow tokenizer for robustness.
+    try:
+        tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    except Exception:  # noqa: BLE001
+        tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         torch_dtype=torch.float16 if device == "cuda" else torch.float32,
@@ -97,7 +93,12 @@ def load_causal_lm_bundle(
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     device = "cpu" if no_cuda or not torch.cuda.is_available() else "cuda"
-    tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    # Some local tokenizer.json variants fail to load as a fast tokenizer.
+    # Fall back to slow tokenizer for robustness.
+    try:
+        tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    except Exception:  # noqa: BLE001
+        tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         torch_dtype=torch.float16 if device == "cuda" else torch.float32,

@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from compiler.xc_asm_prompt import build_training_input_body, format_xc_asm_prompt
+
 MODEL_CONFIGS = {
     "qwen2.5-coder-1.5b": {
         "name": "Qwen/Qwen2.5-Coder-1.5B",
@@ -61,20 +63,15 @@ def _balanced_by_feature(rows: List[dict], cap_per_tag: int = 20000) -> List[dic
     return out
 
 
-def row_to_text(row: dict, hierarchical: bool, template_id: int) -> str:
-    instr = [
-        "将 XC 翻译为 RISC-V64 GNU 汇编，只输出汇编，不要解释。",
-        "Translate the following XC program to RISC-V64 (GNU as) assembly only.",
-        "[Hierarchical] 使用 <<<PROGRAM>>>/<<<STMT_n>>> 结构理解代码，输出汇编：",
-    ][template_id % 3]
-    inp = row["hierarchical_input"] if hierarchical else row["xc_source"]
+def row_to_text(row: dict, hierarchical: bool, template_id: int, prompt_mode: str) -> str:
+    inp = build_training_input_body(row, hierarchical)
     out = row["asm_riscv64"].strip()
-    return f"{instr}\n\n### 输入\n{inp}\n\n### 汇编\n{out}"
+    return format_xc_asm_prompt(inp, "teacher" if prompt_mode == "teacher" else "short", template_id) + out
 
 
-def build_training_texts(jsonl_path: Path, hierarchical: bool) -> List[str]:
+def build_training_texts(jsonl_path: Path, hierarchical: bool, prompt_mode: str = "short") -> List[str]:
     rows = load_jsonl(jsonl_path)
-    return [row_to_text(row, hierarchical, i) for i, row in enumerate(rows)]
+    return [row_to_text(row, hierarchical, i, prompt_mode) for i, row in enumerate(rows)]
 
 
 def tokenize_dataset(ds: Any, tokenizer, max_len: int) -> Any:
@@ -100,6 +97,12 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--curriculum_phase", choices=["base", "feature", "mix"], default="mix")
     ap.add_argument("--feature_balanced_sampling", action="store_true")
+    ap.add_argument(
+        "--prompt_mode",
+        choices=["short", "teacher"],
+        default="short",
+        help="与 compiler/xc_asm_prompt 一致；teacher=Oracle/寄存器/RVV/流水意图说明（推荐与推理 XC_ASM_PROMPT_MODE=teacher 对齐）",
+    )
     ap.add_argument("--dry_run", action="store_true", help="仅构建文本样本，不导入 torch/transformers")
     args = ap.parse_args()
 
@@ -112,10 +115,11 @@ def main() -> None:
     rows = _phase_filter(rows, args.curriculum_phase)
     if args.feature_balanced_sampling:
         rows = _balanced_by_feature(rows)
-    texts = [row_to_text(row, args.hierarchical, i) for i, row in enumerate(rows)]
+    texts = [row_to_text(row, args.hierarchical, i, args.prompt_mode) for i, row in enumerate(rows)]
     print(
         f"[数据] {len(texts)} 条, hierarchical={args.hierarchical}, "
-        f"phase={args.curriculum_phase}, balanced={args.feature_balanced_sampling}"
+        f"phase={args.curriculum_phase}, balanced={args.feature_balanced_sampling}, "
+        f"prompt_mode={args.prompt_mode}"
     )
     if args.dry_run:
         print(texts[0][:2000])

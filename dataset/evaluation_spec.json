@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "description": "XC→ASM 评测口径（验收 99.9% 等目标前必须先选定下列之一并固定测试集）。",
+  "metrics": {
+    "A_runtime_exit_match": {
+      "definition": "pred 与 gold 均能 gcc 静态链接且 qemu-riscv64 退出码相等",
+      "implementation": "xc_asm_validate.try_compile_and_qemu_exit_code",
+      "script": "tools/jncc_linux_exec_validate_from_pred_asm.py",
+      "recommended_primary": true
+    },
+    "B_normalized_asm_match": {
+      "definition": "compiler.jncc_asm_norm.normalize_asm_lines(pred) == normalize_asm_lines(gold)",
+      "implementation": "compiler.jncc_asm_norm.normalized_asm_diff",
+      "note": "通常严于 A；标签与字面汇编需与 Oracle 一致"
+    },
+    "C_rvv_subset": {
+      "definition": "仅在 feature_tags 含 rvv 或 id 前缀约定的子集上计算 A 或 B",
+      "implementation": "过滤 JSONL 行后再跑同上脚本"
+    }
+  },
+  "default_test_sets": {
+    "holdout_smoke": "dataset/xc_asm_test.jsonl",
+    "full_corpus_gold_only": "dataset/xc_asm_all.jsonl"
+  },
+  "target_note": "99.9% 应对 metric A 或 B 在明确声明的测试集上计算；全仓库 golden 汇编 QEMU 可用性见 tools/jncc_linux_validate_gold_asm_jsonl.py",
+  "inference_alignment": "训练若使用 --prompt_mode teacher，推理应设置 XC_ASM_PROMPT_MODE=teacher 或同等 CLI",
+  "merged_train_dataset": "dataset/xc_asm_train_with_rvv.jsonl",
+  "merged_train_stats": "当前合并结果：xc_asm_train 180 行 + teacher_rvv_seed 2 + xc_asm_rvv_supplement 7 => 189 行（无 id 冲突时追加新 id）。补充集由 dataset/build_rvv_supplement.py 生成并在 QEMU 8 下校验。",
+  "merge_command": "python tools/merge_jsonl_by_id.py --out dataset/xc_asm_train_with_rvv.jsonl --in dataset/xc_asm_train.jsonl dataset/xc_asm_teacher_rvv_seed.jsonl dataset/xc_asm_rvv_supplement.jsonl",
+  "complex_supplement": "dataset/xc_asm_complex_supplement.jsonl",
+  "complex_supplement_note": "递归/互递归、减法版 GCD、扁平矩阵槽位、115+ 行线性链、类 CRC 移位链、双 malloc、状态机等；Oracle 金标。XC 中表达式勿用取模运算符 %（与函数定义符冲突），用 i-(i/k)*k 代替。",
+  "regenerate_complex_supplement": "python dataset/build_complex_xc_supplement.py",
+  "merge_train_with_complex": "python tools/merge_jsonl_by_id.py --out dataset/xc_asm_train_merged.jsonl --in dataset/xc_asm_train.jsonl dataset/xc_asm_teacher_rvv_seed.jsonl dataset/xc_asm_rvv_supplement.jsonl dataset/xc_asm_complex_supplement.jsonl",
+  "regenerate_rvv_rows": "python dataset/build_rvv_supplement.py",
+  "sft_teacher_examples": {
+    "mamba_dry_run": "python training/train_xc_mamba.py --dry_run --prompt_mode teacher --curriculum_phase mix --jsonl dataset/xc_asm_train_with_rvv.jsonl",
+    "mamba_train": "python training/train_xc_mamba.py --prompt_mode teacher --curriculum_phase mix --jsonl dataset/xc_asm_train_with_rvv.jsonl --output_dir models/JNCC_teacher_rvv --epochs 2 --fp16 --no_hub_kernels",
+    "mamba_train_from_local": "python training/train_xc_mamba.py --base_model models/JNCC/final --prompt_mode teacher --curriculum_phase mix --jsonl dataset/xc_asm_train_with_rvv.jsonl --output_dir models/JNCC_teacher_rvv --epochs 2 --fp16 --no_hub_kernels",
+    "mamba_train_smoke": "python training/train_xc_mamba.py --prompt_mode teacher --curriculum_phase mix --jsonl dataset/xc_asm_train_with_rvv.jsonl --output_dir models/JNCC_smoke --fp16 --no_hub_kernels --max_steps 30",
+    "lora_dry_run": "python training/train_xc_asm.py --dry_run --prompt_mode teacher --curriculum_phase mix --jsonl dataset/xc_asm_train_with_rvv.jsonl"
+  },
+  "eval_end_to_end": "python tools/run_eval_pipeline.py --model models/JNCC/final --jsonl dataset/xc_asm_test.jsonl --limit 0 --prompt_mode teacher --proximity",
+  "eval_ci_oracle_chain": "docker run --rm -v \"$PWD:/work\" -w /work jncc-riscv-exec python3 tools/run_eval_pipeline.py --oracle_self_test --jsonl dataset/xc_asm_test.jsonl --proximity --pred_out reports/pred_eval_oracle_self.jsonl --report_out reports/linux_exec_validate_from_pred_eval.json",
+  "docker_riscv_image": "Dockerfile.jncc-riscv-exec 基于 ubuntu:24.04，内含 qemu-user 8.x（RVV 可用）。构建: docker build -f Dockerfile.jncc-riscv-exec -t jncc-riscv-exec .（apt 较慢时可多等几分钟；官方源可 build-arg USE_APT_MIRROR=0）",
+  "docker_rvv_smoke": "docker run --rm -v \"$PWD:/work\" -w /work jncc-riscv-exec sh tools/docker_verify_riscv_rvv.sh",
+  "full_dataset_xc_asm_all": "dataset/xc_asm_all.jsonl（200 条）",
+  "docker_full_gold_qemu": "docker run --rm -v \"$PWD:/work\" -w /work jncc-riscv-exec python3 tools/jncc_linux_validate_gold_asm_jsonl.py --jsonl dataset/xc_asm_all.jsonl --out reports/linux_exec_validate_gold_full.json",
+  "docker_full_oracle_self_ab": "docker run --rm -v \"$PWD:/work\" -w /work jncc-riscv-exec python3 tools/run_eval_pipeline.py --oracle_self_test --jsonl dataset/xc_asm_all.jsonl --limit 0 --prompt_mode teacher --proximity --pred_out reports/pred_oracle_self_xc_asm_all.jsonl --report_out reports/linux_exec_validate_oracle_self_xc_asm_all.json",
+  "aggregate_full_compare": "python tools/aggregate_full_dataset_compare.py",
+  "model_full_then_docker_validate": "本机（需 PyTorch；无 mamba-ssm 时极慢）: python tools/jncc_generate_pred_asm.py --jsonl dataset/xc_asm_all.jsonl --model models/JNCC/final --out reports/pred_model_xc_asm_all.jsonl --limit 200 --prompt_mode teacher --attempts 1 --temperatures 0.0；完成后 Docker: docker run --rm -v \"$PWD:/work\" -w /work jncc-riscv-exec python3 tools/jncc_linux_exec_validate_from_pred_asm.py --jsonl reports/pred_model_xc_asm_all.jsonl --proximity --out reports/linux_exec_validate_model_xc_asm_all.json --backend_label model_xc_asm_all；再 python tools/aggregate_full_dataset_compare.py",
+  "full_compare_summary_out": "reports/full_dataset_compare_summary.json"
+}

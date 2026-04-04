@@ -1,5 +1,6 @@
 """
 生成 XC 程序样本（含 feature tags / difficulty），用于大规模 XC↔ASM 数据工厂。
+递归、大规模线性链、扁平「高维」槽位、工业状态机/CRC 风格等金标见 build_complex_xc_supplement.py。
 """
 
 from __future__ import annotations

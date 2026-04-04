@@ -1,0 +1,178 @@
+{
+  "summary": {
+    "dataset": "reports/pred_eval_oracle_self.jsonl",
+    "rows_total": 10,
+    "backend_label": "eval_pipeline",
+    "evaluation_spec": "/work/dataset/evaluation_spec.json",
+    "oracle_runtime_ok_rate": 1.0,
+    "pred_runtime_ok_rate": 1.0,
+    "runtime_match_rate": 1.0,
+    "toolchain": {
+      "gcc": "/usr/bin/riscv64-linux-gnu-gcc",
+      "qemu": "/usr/bin/qemu-riscv64"
+    },
+    "normalized_asm_match_rate": 1.0
+  },
+  "details": [
+    {
+      "id": "xcasm_122_12345",
+      "oracle_qemu_exit_code": 241,
+      "pred_qemu_exit_code": 241,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 37,
+        "norm_line_count_gold": 37
+      }
+    },
+    {
+      "id": "xcasm_16_12345",
+      "oracle_qemu_exit_code": 8,
+      "pred_qemu_exit_code": 8,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 53,
+        "norm_line_count_gold": 53
+      }
+    },
+    {
+      "id": "xcasm_152_12345",
+      "oracle_qemu_exit_code": 44,
+      "pred_qemu_exit_code": 44,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 48,
+        "norm_line_count_gold": 48
+      }
+    },
+    {
+      "id": "xcasm_186_12345",
+      "oracle_qemu_exit_code": 6,
+      "pred_qemu_exit_code": 6,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 45,
+        "norm_line_count_gold": 45
+      }
+    },
+    {
+      "id": "xcasm_54_12345",
+      "oracle_qemu_exit_code": 32,
+      "pred_qemu_exit_code": 32,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 37,
+        "norm_line_count_gold": 37
+      }
+    },
+    {
+      "id": "xcasm_103_12345",
+      "oracle_qemu_exit_code": 2,
+      "pred_qemu_exit_code": 2,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 40,
+        "norm_line_count_gold": 40
+      }
+    },
+    {
+      "id": "xcasm_2_12345",
+      "oracle_qemu_exit_code": 8,
+      "pred_qemu_exit_code": 8,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 53,
+        "norm_line_count_gold": 53
+      }
+    },
+    {
+      "id": "xcasm_90_12345",
+      "oracle_qemu_exit_code": 44,
+      "pred_qemu_exit_code": 44,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 48,
+        "norm_line_count_gold": 48
+      }
+    },
+    {
+      "id": "xcasm_154_12345",
+      "oracle_qemu_exit_code": 10,
+      "pred_qemu_exit_code": 10,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 53,
+        "norm_line_count_gold": 53
+      }
+    },
+    {
+      "id": "xcasm_144_12345",
+      "oracle_qemu_exit_code": 223,
+      "pred_qemu_exit_code": 223,
+      "pred_used_postprocess": false,
+      "oracle_ok": true,
+      "pred_ok": true,
+      "runtime_match_oracle": true,
+      "oracle_msg": "ran",
+      "pred_msg": "ran",
+      "oracle_proximity": {
+        "normalized_asm_equal": true,
+        "norm_line_count_pred": 37,
+        "norm_line_count_gold": 37
+      }
+    }
+  ]
+}
