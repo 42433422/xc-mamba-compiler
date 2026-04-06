@@ -4,16 +4,15 @@ import threading
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set
 
+from neuro_ddd.resilience.circuit_breaker import CircuitOpenError
+from neuro_ddd.resilience.rate_limit import RateLimitExceeded
+
 from .delivery import BroadcastResult, BusHooks, DeliveryErrorPolicy, DeliveryFailure
 from .domain import NeuralDomain
 from .signal import Signal
 from .types import DomainType
 
 logger = logging.getLogger(__name__)
-
-from neuro_ddd.resilience.bus_layer import BusResilience
-from neuro_ddd.resilience.circuit_breaker import CircuitOpenError
-from neuro_ddd.resilience.rate_limit import RateLimitExceeded
 
 _dispatch_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
     "neuro_ddd_dispatch_depth", default=0
@@ -30,6 +29,7 @@ class NeuroBus:
         max_dispatch_depth: int = 64,
         hooks: Optional[BusHooks] = None,
         resilience: Any = None,
+        record_broadcasts: bool = True,
     ) -> None:
         self._lock = threading.RLock()
         self._domains: Dict[DomainType, NeuralDomain] = {}
@@ -39,6 +39,7 @@ class NeuroBus:
         self._max_dispatch_depth = max_dispatch_depth
         self._hooks = hooks or BusHooks()
         self._resilience = resilience
+        self._record_broadcasts = record_broadcasts
 
     @property
     def delivery_error_policy(self) -> DeliveryErrorPolicy:
@@ -138,25 +139,29 @@ class NeuroBus:
         policy = error_policy if error_policy is not None else self._delivery_error_policy
         self._enter_dispatch()
         result = BroadcastResult()
+        hooks = self._hooks
+        res = self._resilience
+        need_env = res is not None or self._record_broadcasts
+        env: Optional[dict] = signal.to_dict() if need_env else None
         try:
-            if self._resilience is not None:
+            if res is not None:
+                assert env is not None
                 try:
-                    self._resilience.before_broadcast(signal.to_dict())
+                    res.before_broadcast(env)
                 except RateLimitExceeded as exc:
-                    self._resilience.handle_rate_limit(signal.to_dict(), exc)
+                    res.handle_rate_limit(env, exc)
                     raise
                 except CircuitOpenError:
-                    self._resilience.handle_circuit_open(signal.to_dict())
-                    if getattr(
-                        self._resilience, "on_circuit_open_return_empty", True
-                    ):
-                        if self._hooks.on_broadcast_end:
-                            self._hooks.on_broadcast_end(signal, result)
+                    res.handle_circuit_open(env)
+                    if getattr(res, "on_circuit_open_return_empty", True):
+                        if hooks.on_broadcast_end:
+                            hooks.on_broadcast_end(signal, result)
                         return result
                     raise
-            if self._hooks.on_broadcast_begin:
-                self._hooks.on_broadcast_begin(signal)
+            if hooks.on_broadcast_begin:
+                hooks.on_broadcast_begin(signal)
             targets = self._resolve_targets(signal)
+            _log_exc = logger.isEnabledFor(logging.ERROR)
             for target in targets:
                 try:
                     target.on_receive(signal)
@@ -168,56 +173,53 @@ class NeuroBus:
                         signal_name=signal.name,
                         error=exc,
                     )
-                    if self._hooks.on_handler_error:
-                        self._hooks.on_handler_error(
-                            signal, target.domain_type, exc
-                        )
-                    if (
-                        self._resilience is not None
-                        and self._resilience.dead_letter is not None
-                    ):
-                        self._resilience.dead_letter.push(
-                            signal_envelope=signal.to_dict(),
+                    if hooks.on_handler_error:
+                        hooks.on_handler_error(signal, target.domain_type, exc)
+                    if res is not None and res.dead_letter is not None:
+                        res.dead_letter.push(
+                            signal_envelope=env if env is not None else signal.to_dict(),
                             reason="handler_error",
                             domain_type=target.domain_type,
                             error=exc,
                         )
                     if policy == DeliveryErrorPolicy.FAIL_FAST:
-                        if self._resilience is not None:
-                            self._resilience.record_broadcast_failure(exc)
+                        if res is not None:
+                            res.record_broadcast_failure(exc)
+                        if _log_exc:
+                            logger.exception(
+                                "FAIL_FAST: handler error domain=%s signal_id=%s name=%s correlation_id=%s",
+                                target.domain_type.value,
+                                signal.signal_id,
+                                signal.name,
+                                signal.correlation_id,
+                            )
+                        raise
+                    if _log_exc:
                         logger.exception(
-                            "FAIL_FAST: handler error domain=%s signal_id=%s name=%s correlation_id=%s",
+                            "ISOLATE: handler error domain=%s signal_id=%s name=%s correlation_id=%s",
                             target.domain_type.value,
                             signal.signal_id,
                             signal.name,
                             signal.correlation_id,
                         )
-                        raise
-                    logger.exception(
-                        "ISOLATE: handler error domain=%s signal_id=%s name=%s correlation_id=%s",
-                        target.domain_type.value,
-                        signal.signal_id,
-                        signal.name,
-                        signal.correlation_id,
-                    )
                     result.failures.append(failure)
-            log_entry = {
-                "signal": signal.to_dict(),
-                "target_count": len(targets),
-                "targets": [d.domain_type.value for d in targets],
-                "failure_count": len(result.failures),
-            }
-            with self._lock:
-                self._broadcast_log.append(log_entry)
-            if self._resilience is not None:
+            if self._record_broadcasts:
+                assert env is not None
+                log_entry = {
+                    "signal": env,
+                    "target_count": len(targets),
+                    "targets": [d.domain_type.value for d in targets],
+                    "failure_count": len(result.failures),
+                }
+                with self._lock:
+                    self._broadcast_log.append(log_entry)
+            if res is not None:
                 if result.ok():
-                    self._resilience.record_broadcast_success()
+                    res.record_broadcast_success()
                 elif result.failures:
-                    self._resilience.record_broadcast_failure(
-                        result.failures[0].error
-                    )
-            if self._hooks.on_broadcast_end:
-                self._hooks.on_broadcast_end(signal, result)
+                    res.record_broadcast_failure(result.failures[0].error)
+            if hooks.on_broadcast_end:
+                hooks.on_broadcast_end(signal, result)
             return result
         finally:
             self._exit_dispatch()

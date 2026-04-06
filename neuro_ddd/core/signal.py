@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from .types import SignalType, DomainType
 
 
-@dataclass
+@dataclass(slots=True)
 class Signal:
     """Neural message. For DDD-style use, set ``name`` for semantic routing (topic)."""
 
@@ -24,11 +24,12 @@ class Signal:
     parent_span_id: Optional[str] = None
 
     def to_dict(self) -> dict:
+        td = self.target_domains
         return {
             "signal_id": self.signal_id,
             "signal_type": self.signal_type.value if self.signal_type else None,
             "source_domain": self.source_domain.value if self.source_domain else None,
-            "target_domains": [d.value for d in self.target_domains],
+            "target_domains": [d.value for d in td],
             "payload": self.payload,
             "timestamp": self.timestamp,
             "name": self.name,
