@@ -8,6 +8,12 @@ Neuro-DDD 可复现性能对比（本仓库根目录运行）
 3. 同步 neuro_ddd.NeuroBus：相对「手写 for 循环调用 on_receive」的调度开销
 
 输出：reports/neuro_ddd_benchmark.json
+
+默认参数（贴近业务，非微基准噪声）：
+- 轻 I/O：每域 ~18ms，模拟跨服务/缓存未命中级延迟；并行相对串行应有明显收益。
+- 重 I/O：每域 ~120ms，模拟外部 API / 推理子步骤级延迟。
+- 域数量默认 4，接近符号→编译→安全→调度流水线深度。
+- 快速冒烟：``python tools/benchmark_neuro_ddd_performance.py --quick``
 """
 
 from __future__ import annotations
@@ -201,7 +207,7 @@ async def bench_neuro_crud_domain_only(iterations: int) -> ScenarioStats:
     )
 
 
-def bench_neuro_ddd_sync_bus_overhead(iterations: int) -> Dict[str, Any]:
+def bench_neuro_ddd_sync_bus_overhead(iterations: int, n_domains: int) -> Dict[str, Any]:
     from neuro_ddd.core.bus import NeuroBus
     from neuro_ddd.core.delivery import DeliveryErrorPolicy
     from neuro_ddd.core.domain import NeuralDomain
@@ -215,15 +221,19 @@ def bench_neuro_ddd_sync_bus_overhead(iterations: int) -> Dict[str, Any]:
         def process_signal(self, signal):  # type: ignore[no-untyped-def]
             return None
 
+    pipeline = (
+        DomainType.SYMBOL_PERCEPTION,
+        DomainType.COMPILATION,
+        DomainType.SECURITY_VERIFICATION,
+        DomainType.DYNAMIC_SCHEDULING,
+    )
+    n = max(1, min(n_domains, len(pipeline)))
+    types = pipeline[:n]
+
     lat_bus: List[float] = []
     bus = NeuroBus(
         delivery_error_policy=DeliveryErrorPolicy.ISOLATE,
         record_broadcasts=False,
-    )
-    types = (
-        DomainType.COMPILATION,
-        DomainType.SECURITY_VERIFICATION,
-        DomainType.DYNAMIC_SCHEDULING,
     )
     spies = [Spy(bus, t) for t in types]
     sig = Signal(payload={"bench": True})
@@ -240,16 +250,18 @@ def bench_neuro_ddd_sync_bus_overhead(iterations: int) -> Dict[str, Any]:
         lat_direct.append((time.perf_counter() - t0) * 1000)
 
     s_bus = _stats(
-        "neuro_ddd_sync_bus_3_domains",
+        f"neuro_ddd_sync_bus_{n}_domains",
         lat_bus,
         iterations,
-        notes="NeuroBus.broadcast to 3x on_receive (record_broadcasts=False)",
+        notes=(
+            f"NeuroBus.broadcast to {n}x on_receive (record_broadcasts=False)"
+        ),
     )
     s_dir = _stats(
-        "neuro_ddd_direct_loop_3_domains",
+        f"neuro_ddd_direct_loop_{n}_domains",
         lat_direct,
         iterations,
-        notes="for-loop on_receive x3",
+        notes=f"for-loop on_receive x{n}",
     )
     ratio = (s_bus.avg_ms / s_dir.avg_ms) if s_dir.avg_ms > 0 else None
     if ratio is not None:
@@ -292,28 +304,36 @@ async def run_all(
     delay_ms_micro: float,
     delay_ms_heavy: float,
     n_handlers: int,
+    sync_bus_iters: int,
+    profile: str,
 ) -> Dict[str, Any]:
     wall0 = time.perf_counter()
     pair_micro = await _parallel_pair(parallel_iters, delay_ms_micro, n_handlers)
     pair_heavy = await _parallel_pair(parallel_iters_heavy, delay_ms_heavy, n_handlers)
     trad_crud = bench_traditional_crud(crud_iters)
     neuro_crud = await bench_neuro_crud_domain_only(crud_iters)
-    sync_bus = bench_neuro_ddd_sync_bus_overhead(min(5000, max(500, crud_iters * 5)))
+    sync_bus = bench_neuro_ddd_sync_bus_overhead(sync_bus_iters, n_handlers)
 
     return {
         "generated_at_unix": time.time(),
         "wall_clock_total_s": round(time.perf_counter() - wall0, 3),
         "python": sys.version.split()[0],
         "parameters": {
-            "parallel_iterations_micro": parallel_iters,
+            "profile": profile,
+            "parallel_iterations_light_io": parallel_iters,
             "parallel_iterations_heavy_io": parallel_iters_heavy,
             "crud_iterations": crud_iters,
-            "delay_ms_micro": delay_ms_micro,
-            "delay_ms_heavy": delay_ms_heavy,
+            "delay_ms_light_io": delay_ms_micro,
+            "delay_ms_heavy_io": delay_ms_heavy,
             "handler_or_domain_count": n_handlers,
+            "sync_bus_iterations": sync_bus_iters,
+            "delay_semantics_zh": (
+                "light_io≈跨服务/Redis 量级；heavy_io≈外部 API 或推理子步骤量级；"
+                "二者均用 sleep 模拟等待，非 CPU 密集。"
+            ),
         },
         "scenarios": {
-            "parallel_micro_io": pair_micro,
+            "parallel_light_io": pair_micro,
             "parallel_heavy_io": pair_heavy,
             "parallel_interpretation": (
                 "With tiny per-handler delays, asyncio framework cost can dominate; "
@@ -329,23 +349,90 @@ async def run_all(
 
 
 def main() -> None:
-    p = argparse.ArgumentParser()
-    p.add_argument("--parallel-iters", type=int, default=60)
-    p.add_argument("--parallel-iters-heavy", type=int, default=40)
-    p.add_argument("--crud-iters", type=int, default=500)
-    p.add_argument("--delay-ms-micro", type=float, default=2.0)
-    p.add_argument("--delay-ms-heavy", type=float, default=12.0)
-    p.add_argument("--handlers", type=int, default=3)
+    p = argparse.ArgumentParser(
+        description=(
+            "默认可复现「业务向」延迟与域数；--quick 为原玩具参数（秒级跑完）。"
+        )
+    )
+    p.add_argument(
+        "--quick",
+        action="store_true",
+        help="快速冒烟：小迭代、2ms/12ms 延迟、3 域（易放大框架噪声，仅作对比）",
+    )
+    p.add_argument(
+        "--parallel-iters",
+        type=int,
+        default=100,
+        help="轻 I/O 场景每轮迭代次数（默认 100）",
+    )
+    p.add_argument(
+        "--parallel-iters-heavy",
+        type=int,
+        default=30,
+        help="重 I/O 场景每轮迭代次数（默认 30，避免串行 4×delay 过长）",
+    )
+    p.add_argument(
+        "--crud-iters",
+        type=int,
+        default=2000,
+        help="CRUD 对照迭代次数（默认 2000）",
+    )
+    p.add_argument(
+        "--delay-ms-light",
+        type=float,
+        default=18.0,
+        dest="delay_ms_micro",
+        help="轻 I/O：每域 sleep 毫秒，模拟跨服务/缓存（默认 18）",
+    )
+    p.add_argument(
+        "--delay-ms-heavy",
+        type=float,
+        default=120.0,
+        help="重 I/O：每域 sleep 毫秒，模拟 API/推理片（默认 120）",
+    )
+    p.add_argument(
+        "--handlers",
+        type=int,
+        default=4,
+        help="并行场景域数量（默认 4，贴近多域流水线）",
+    )
+    p.add_argument(
+        "--sync-bus-iters",
+        type=int,
+        default=8000,
+        help="同步 NeuroBus vs 裸循环采样次数（默认 8000）",
+    )
     args = p.parse_args()
+
+    if args.quick:
+        profile = "quick_smoke"
+        parallel_iters = 60
+        parallel_iters_heavy = 40
+        crud_iters = 500
+        delay_micro = 2.0
+        delay_heavy = 12.0
+        n_handlers = 3
+        sync_bus_iters = min(5000, max(500, crud_iters * 5))
+    else:
+        profile = "business_default"
+        parallel_iters = args.parallel_iters
+        parallel_iters_heavy = args.parallel_iters_heavy
+        crud_iters = args.crud_iters
+        delay_micro = args.delay_ms_micro
+        delay_heavy = args.delay_ms_heavy
+        n_handlers = args.handlers
+        sync_bus_iters = args.sync_bus_iters
 
     report = asyncio.run(
         run_all(
-            args.parallel_iters,
-            args.parallel_iters_heavy,
-            args.crud_iters,
-            args.delay_ms_micro,
-            args.delay_ms_heavy,
-            args.handlers,
+            parallel_iters,
+            parallel_iters_heavy,
+            crud_iters,
+            delay_micro,
+            delay_heavy,
+            n_handlers,
+            sync_bus_iters,
+            profile,
         )
     )
     out_dir = REPO_ROOT / "reports"

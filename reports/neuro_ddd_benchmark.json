@@ -1,0 +1,114 @@
+{
+  "generated_at_unix": 1775453905.9162195,
+  "wall_clock_total_s": 3.605,
+  "python": "3.11.8",
+  "parameters": {
+    "profile": "quick_smoke",
+    "parallel_iterations_light_io": 60,
+    "parallel_iterations_heavy_io": 40,
+    "crud_iterations": 500,
+    "delay_ms_light_io": 2.0,
+    "delay_ms_heavy_io": 12.0,
+    "handler_or_domain_count": 3,
+    "sync_bus_iterations": 2500,
+    "delay_semantics_zh": "light_io≈跨服务/Redis 量级；heavy_io≈外部 API 或推理子步骤量级；二者均用 sleep 模拟等待，非 CPU 密集。"
+  },
+  "scenarios": {
+    "parallel_light_io": {
+      "delay_ms_per_handler": 2.0,
+      "iterations": 60,
+      "traditional_sequential_sync": {
+        "name": "traditional_sequential_sync",
+        "iterations": 60,
+        "avg_ms": 7.2122700000666855,
+        "median_ms": 7.238050000523799,
+        "min_ms": 6.363800002873177,
+        "max_ms": 8.109500002319692,
+        "throughput_ops_s": 138.65260174546347,
+        "notes": "3 handlers, sleep(2.0ms) each, same thread"
+      },
+      "async_neuro_bus_parallel": {
+        "name": "async_neuro_bus_parallel",
+        "iterations": 60,
+        "avg_ms": 15.484870000303394,
+        "median_ms": 15.527349998592399,
+        "min_ms": 10.624400001688628,
+        "max_ms": 16.55430000027991,
+        "throughput_ops_s": 64.579166630421,
+        "notes": "3 domains, asyncio.gather in broadcast, sleep(2.0ms) each"
+      },
+      "sequential_median_ms_over_parallel_median_ms": 0.4661
+    },
+    "parallel_heavy_io": {
+      "delay_ms_per_handler": 12.0,
+      "iterations": 40,
+      "traditional_sequential_sync": {
+        "name": "traditional_sequential_sync",
+        "iterations": 40,
+        "avg_ms": 37.14246749987069,
+        "median_ms": 37.157499999011634,
+        "min_ms": 36.55179999987013,
+        "max_ms": 37.88700000222889,
+        "throughput_ops_s": 26.923359359565474,
+        "notes": "3 handlers, sleep(12.0ms) each, same thread"
+      },
+      "async_neuro_bus_parallel": {
+        "name": "async_neuro_bus_parallel",
+        "iterations": 40,
+        "avg_ms": 15.81394500008173,
+        "median_ms": 15.589649998219102,
+        "min_ms": 15.069900000526104,
+        "max_ms": 21.55510000011418,
+        "throughput_ops_s": 63.23532805981251,
+        "notes": "3 domains, asyncio.gather in broadcast, sleep(12.0ms) each"
+      },
+      "sequential_median_ms_over_parallel_median_ms": 2.3835
+    },
+    "parallel_interpretation": "With tiny per-handler delays, asyncio framework cost can dominate; with larger I/O-like delays, wall-clock approaches max(delay) instead of sum(delay).",
+    "crud": {
+      "traditional": {
+        "name": "traditional_crud_sync",
+        "iterations": 500,
+        "avg_ms": 0.0004941999213770032,
+        "median_ms": 0.00039999940781854093,
+        "min_ms": 0.0002999986463692039,
+        "max_ms": 0.004400000761961564,
+        "throughput_ops_s": 2023472.6003469846,
+        "notes": "direct service + repo"
+      },
+      "neuro_domain_path": {
+        "name": "neuro_software_domain_on_receive_only",
+        "iterations": 500,
+        "avg_ms": 0.009287600034440402,
+        "median_ms": 0.008200000593205914,
+        "min_ms": 0.007499998901039362,
+        "max_ms": 0.163800003065262,
+        "throughput_ops_s": 107670.44191091205,
+        "notes": "SoftwareDomain.on_receive x2 per iter, no bus.broadcast"
+      }
+    },
+    "sync_neuro_ddd_bus": {
+      "bus": {
+        "name": "neuro_ddd_sync_bus_3_domains",
+        "iterations": 2500,
+        "avg_ms": 0.007106439980270806,
+        "median_ms": 0.005199999577598646,
+        "min_ms": 0.004799996531801298,
+        "max_ms": 0.11269999959040433,
+        "throughput_ops_s": 140717.4341549695,
+        "notes": "NeuroBus.broadcast to 3x on_receive (record_broadcasts=False) | overhead_vs_direct_loop=4.97x avg latency"
+      },
+      "direct_loop": {
+        "name": "neuro_ddd_direct_loop_3_domains",
+        "iterations": 2500,
+        "avg_ms": 0.0014286399484262802,
+        "median_ms": 0.0012000018614344299,
+        "min_ms": 0.0010999974620062858,
+        "max_ms": 0.1081000009435229,
+        "throughput_ops_s": 699966.4268814203,
+        "notes": "for-loop on_receive x3"
+      },
+      "avg_latency_ratio_bus_over_direct": 4.9743
+    }
+  }
+}
