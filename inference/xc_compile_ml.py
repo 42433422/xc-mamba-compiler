@@ -14,17 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from compiler.xc_asm_prompt import build_prompt, resolve_prompt_mode
 from xc_asm_validate import assemble_check, basic_asm_sanity
-
-
-def build_prompt(xc_source: str, hierarchical: bool) -> str:
-    instr = "将 XC 翻译为 RISC-V64 GNU 汇编，只输出汇编，不要解释。"
-    inp = xc_source.strip()
-    if hierarchical:
-        lines = [ln for ln in inp.splitlines() if ln.strip()]
-        hier = ["<<<PROGRAM>>>"] + [f"<<<STMT_{i}>>>{ln}" for i, ln in enumerate(lines)]
-        inp = "\n".join(hier)
-    return f"{instr}\n\n### 输入\n{inp}\n\n### 汇编\n"
 
 
 def main() -> None:
@@ -36,6 +27,12 @@ def main() -> None:
     ap.add_argument("--max_new_tokens", type=int, default=2048)
     ap.add_argument("--temperature", type=float, default=0.2)
     ap.add_argument("--no_cuda", action="store_true")
+    ap.add_argument(
+        "--prompt_mode",
+        choices=["short", "teacher"],
+        default="",
+        help="空则使用环境变量 XC_ASM_PROMPT_MODE（默认 short）",
+    )
     args = ap.parse_args()
 
     if args.file:
@@ -65,7 +62,8 @@ def main() -> None:
     model.to(device)
     model.eval()
 
-    prompt = build_prompt(xc, args.hierarchical)
+    pm = resolve_prompt_mode(args.prompt_mode if args.prompt_mode in ("short", "teacher") else None)
+    prompt = build_prompt(xc, args.hierarchical, mode=pm)
     inputs = tok(prompt, return_tensors="pt").to(device)
     with torch.no_grad():
         out = model.generate(

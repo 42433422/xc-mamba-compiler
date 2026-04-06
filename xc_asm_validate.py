@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import random
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -22,10 +23,46 @@ ISA_NAME = "riscv64"
 ASM_DIALECT = "gnu"
 ENV_AS = "XC_RISCV_AS"
 ENV_LD = "XC_RISCV_LD"
+ENV_GCC = "XC_RISCV_GCC"
 ENV_QEMU = "XC_RISCV_QEMU"
 DEFAULT_AS_CMDS = ("riscv64-linux-gnu-as", "riscv64-unknown-linux-gnu-as", "as")
 DEFAULT_LD_CMDS = ("riscv64-linux-gnu-ld", "riscv64-unknown-linux-gnu-ld", "ld")
+DEFAULT_GCC_CMDS = ("riscv64-linux-gnu-gcc", "riscv64-unknown-linux-gnu-gcc")
 DEFAULT_QEMU_CMDS = ("qemu-riscv64",)
+
+_RVV_ASM_HINT = re.compile(
+    r"\b(vsetvli|vsetivli|vl[re]\d+\.v|vse\d+\.v|v[fs]?(?:add|sub|mul|div|macc)[^,\s]*|"
+    r"vmv\.[^,\s]+|vredsum|vcompress|vslide|vfclass|vfsqrt)\b"
+)
+
+
+def asm_uses_rvv(asm: str) -> bool:
+    return bool(_RVV_ASM_HINT.search(asm))
+
+
+def _riscv_march_token(asm: str) -> str:
+    override = os.environ.get("XC_RISCV_MARCH", "").strip()
+    if override:
+        return override
+    return "rv64gcv" if asm_uses_rvv(asm) else "rv64gc"
+
+
+def riscv_march_gcc_args(asm: str) -> list:
+    return [f"-march={_riscv_march_token(asm)}", "-mabi=lp64d"]
+
+
+def riscv_march_as_args(asm: str) -> list:
+    return [f"-march={_riscv_march_token(asm)}", "-mabi=lp64d"]
+
+
+def qemu_riscv_extra_args(asm: str) -> list:
+    """用户态 QEMU 默认 CPU 常无 V；RVV ELF 需显式 -cpu。"""
+    cpu = os.environ.get("XC_RISCV_QEMU_CPU", "").strip()
+    if cpu:
+        return ["-cpu", cpu]
+    if asm_uses_rvv(asm):
+        return ["-cpu", "rv64,v=true,vlen=128,vext_spec=v1.0"]
+    return []
 
 
 def resolve_tool(cmds: tuple, env_key: str):
@@ -45,6 +82,7 @@ def get_toolchain_info() -> dict:
         "dialect": ASM_DIALECT,
         "as": resolve_tool(DEFAULT_AS_CMDS, ENV_AS),
         "ld": resolve_tool(DEFAULT_LD_CMDS, ENV_LD),
+        "gcc": resolve_tool(DEFAULT_GCC_CMDS, ENV_GCC),
         "qemu": resolve_tool(DEFAULT_QEMU_CMDS, ENV_QEMU),
     }
 
@@ -62,7 +100,7 @@ def basic_asm_sanity(asm: str) -> Tuple[bool, str]:
         return False, "synthetic_reject_marker"
     if ".text" not in asm and ".globl" not in asm:
         return False, "missing text/globl"
-    hints = ("addi", "lw", "sw", "addw", "ret", "call", "j\t", "beqz")
+    hints = ("addi", "lw", "sw", "addw", "ret", "call", "j\t", "beqz", "vsetvli", "vle")
     if not any(h in asm for h in hints):
         return False, "no recognizable rv64 hints"
     return True, "ok"
@@ -81,7 +119,8 @@ def assemble_check(asm: str, extra_flags: Optional[list] = None) -> Tuple[bool, 
         p = Path(td) / "t.s"
         p.write_text(asm, encoding="utf-8")
         out_o = Path(td) / "t.o"
-        cmd = [as_path, "-march=rv64gc", "-mabi=lp64d", *extra_flags, "-o", str(out_o), str(p)]
+        march = riscv_march_as_args(asm)
+        cmd = [as_path, *march, *extra_flags, "-o", str(out_o), str(p)]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         except (FileNotFoundError, subprocess.TimeoutExpired) as e:
@@ -171,7 +210,7 @@ def try_qemu_run_elf(elf_path: Path, timeout: float = 3.0) -> Tuple[Optional[int
 
 
 def try_compile_and_qemu_exit_code(asm: str) -> Tuple[Optional[int], str]:
-    """riscv64 gcc 静态链接 + qemu-riscv64 运行。"""
+    """Host riscv64 gcc + qemu-riscv64：全静态链接常规 Linux 启动文件，使 .globl main 可正常进入。"""
     import shutil
 
     gcc = shutil.which("riscv64-linux-gnu-gcc") or shutil.which("riscv64-unknown-linux-gnu-gcc")
@@ -185,7 +224,8 @@ def try_compile_and_qemu_exit_code(asm: str) -> Tuple[Optional[int], str]:
         elf = Path(td) / "t"
         s_path.write_text(asm, encoding="utf-8")
         r = subprocess.run(
-            [gcc, "-static", "-nostdlib", str(s_path), "-o", str(elf)],
+            # Do not use -nostdlib: Oracle 输出为带 main 的 GNU 汇编，需要 crt 把控制流交到 main。
+            [gcc, "-static", *riscv_march_gcc_args(asm), str(s_path), "-o", str(elf)],
             capture_output=True,
             text=True,
             timeout=60,
@@ -193,7 +233,7 @@ def try_compile_and_qemu_exit_code(asm: str) -> Tuple[Optional[int], str]:
         if r.returncode != 0 or not elf.is_file():
             return None, (r.stderr or r.stdout or "link_failed")[:800]
         try:
-            rq = subprocess.run([qemu, str(elf)], capture_output=True, timeout=5)
+            rq = subprocess.run([qemu, *qemu_riscv_extra_args(asm), str(elf)], capture_output=True, timeout=5)
             return rq.returncode, "ran"
         except Exception as e:
             return None, str(e)

@@ -1,0 +1,33 @@
+# Minimal image for Linux RISC-V assembly compile + qemu-user execution (Oracle / IR backends).
+# Ubuntu 24.04 ships QEMU 8.x user-mode with practical RVV coverage (vs 22.04 / QEMU 6.x).
+# Model backend needs a separate image with PyTorch + GPU/CPU stack.
+
+FROM ubuntu:24.04
+
+# APT: 重试/超时（国内镜像偶发 Connection failed；install 包较大需耐心）
+# 跳过镜像替换: docker build --build-arg USE_APT_MIRROR=0 ...
+ARG USE_APT_MIRROR=1
+RUN set -eux; \
+    printf 'Acquire::Retries "10";\nAcquire::http::Timeout "120";\nAcquire::https::Timeout "120";\n' > /etc/apt/apt.conf.d/99retries; \
+    if [ "$USE_APT_MIRROR" = "1" ]; then \
+      if [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list; \
+        sed -i 's|http://security.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g' /etc/apt/sources.list; \
+      fi; \
+      if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+        sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources; \
+        sed -i 's|http://security.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources; \
+      fi; \
+    fi; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3 \
+        gcc-riscv64-linux-gnu \
+        libc6-dev-riscv64-cross \
+        qemu-user; \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work
+
+# RVV 冒烟: docker run --rm -v \"$PWD:/work\" -w /work jncc-riscv-exec sh tools/docker_verify_riscv_rvv.sh
+# 首次构建约 8–15 分钟（拉 base + apt）。仅官方源: docker build --build-arg USE_APT_MIRROR=0 -f Dockerfile.jncc-riscv-exec -t jncc-riscv-exec .
