@@ -216,7 +216,10 @@ def bench_neuro_ddd_sync_bus_overhead(iterations: int) -> Dict[str, Any]:
             return None
 
     lat_bus: List[float] = []
-    bus = NeuroBus(delivery_error_policy=DeliveryErrorPolicy.ISOLATE)
+    bus = NeuroBus(
+        delivery_error_policy=DeliveryErrorPolicy.ISOLATE,
+        record_broadcasts=False,
+    )
     types = (
         DomainType.COMPILATION,
         DomainType.SECURITY_VERIFICATION,
@@ -240,7 +243,7 @@ def bench_neuro_ddd_sync_bus_overhead(iterations: int) -> Dict[str, Any]:
         "neuro_ddd_sync_bus_3_domains",
         lat_bus,
         iterations,
-        notes="NeuroBus.broadcast to 3x on_receive",
+        notes="NeuroBus.broadcast to 3x on_receive (record_broadcasts=False)",
     )
     s_dir = _stats(
         "neuro_ddd_direct_loop_3_domains",
