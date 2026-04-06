@@ -64,3 +64,6 @@ Untitled
 
 # Git submodules / empty dirs
 XC-Language-Compiler/
+
+# Local clone of neuro-ddd (sync separately)
+_neuro_ddd_repo/
