@@ -64,6 +64,28 @@ class Signal:
             parent_span_id=data.get("parent_span_id"),
         )
 
+    def derive(
+        self,
+        *,
+        name: Optional[str] = None,
+        signal_type: Optional[SignalType] = None,
+        payload: Optional[Dict[str, Any]] = None,
+        target_domains: Optional[List[DomainType]] = None,
+    ) -> "Signal":
+        """New signal (new ``signal_id``) for follow-up broadcasts: keeps correlation/trace, sets causation."""
+        return Signal(
+            signal_type=self.signal_type if signal_type is None else signal_type,
+            source_domain=None,
+            target_domains=[] if target_domains is None else list(target_domains),
+            payload=dict(self.payload) if payload is None else dict(payload),
+            name=self.name if name is None else name,
+            correlation_id=self.correlation_id,
+            causation_id=self.signal_id,
+            trace_id=self.trace_id,
+            span_id=self.span_id,
+            parent_span_id=self.span_id,
+        )
+
     def __repr__(self) -> str:
         return (
             f"Signal(id={self.signal_id}, type={self.signal_type}, name={self.name!r}, "

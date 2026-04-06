@@ -4,7 +4,16 @@ from .types import (
     SchedulingDecision,
     DomainState,
 )
-from .delivery import BroadcastResult, BusHooks, DeliveryErrorPolicy, DeliveryFailure
+from .delivery import (
+    BroadcastLoopGuardTriggered,
+    BroadcastResult,
+    BroadcastTargetLimitExceeded,
+    BusHooks,
+    DeliveryErrorPolicy,
+    DeliveryFailure,
+    DomainDeliveryRecord,
+    DomainDeliveryStatus,
+)
 from .signal import Signal
 from .bus import NeuroBus
 from .domain import NeuralDomain
@@ -20,5 +29,9 @@ __all__ = [
     "DeliveryErrorPolicy",
     "BroadcastResult",
     "DeliveryFailure",
+    "DomainDeliveryRecord",
+    "DomainDeliveryStatus",
+    "BroadcastTargetLimitExceeded",
+    "BroadcastLoopGuardTriggered",
     "BusHooks",
 ]

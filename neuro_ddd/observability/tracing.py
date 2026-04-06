@@ -6,6 +6,7 @@ import secrets
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from neuro_ddd.core.delivery import BroadcastResult
 from neuro_ddd.core.signal import Signal
 
 
@@ -56,6 +57,27 @@ def structured_log_extra(signal: Signal) -> Dict[str, Any]:
         "trace_id": getattr(signal, "trace_id", None),
         "span_id": getattr(signal, "span_id", None),
         "parent_span_id": getattr(signal, "parent_span_id", None),
+    }
+
+
+def broadcast_result_extra(signal: Signal, result: BroadcastResult) -> Dict[str, Any]:
+    """Structured fields for a completed broadcast (resolved targets, per-domain attempts, failures)."""
+    return {
+        **structured_log_extra(signal),
+        "neuro_resolved_targets": [d.value for d in result.resolved_domain_types],
+        "neuro_delivered": [d.value for d in result.delivered_domain_types],
+        "neuro_failure_domains": [f.domain_type.value for f in result.failures],
+        "neuro_failure_count": len(result.failures),
+        "neuro_partial_success": result.partial_success(),
+        "neuro_attempts": [
+            {
+                "domain": a.domain_type.value,
+                "status": a.status.value,
+                "duration_ms": round(a.duration_ms, 6),
+                "error": type(a.error).__name__ if a.error else None,
+            }
+            for a in result.attempts
+        ],
     }
 
 

@@ -9,7 +9,13 @@ import pytest
 sys.path.insert(0, ".")
 
 from neuro_ddd import NeuroBus, Signal
-from neuro_ddd.core.delivery import DeliveryErrorPolicy
+from neuro_ddd.core.delivery import (
+    BroadcastLoopGuardTriggered,
+    BroadcastTargetLimitExceeded,
+    BusHooks,
+    DeliveryErrorPolicy,
+    DomainDeliveryStatus,
+)
 from neuro_ddd.core.domain import NeuralDomain
 from neuro_ddd.core.types import DomainType
 from neuro_ddd.config import NeuroDddConfig
@@ -141,3 +147,149 @@ def test_cli_doctor_runs() -> None:
     from neuro_ddd.cli import cmd_doctor
 
     assert cmd_doctor() == 0
+
+
+def test_broadcast_result_attempts_and_resolved() -> None:
+    bus = NeuroBus(delivery_error_policy=DeliveryErrorPolicy.ISOLATE)
+    _Spy(bus, DomainType.COMPILATION)
+    _Spy(bus, DomainType.SECURITY_VERIFICATION)
+    r = bus.broadcast(Signal(source_domain=DomainType.SYMBOL_PERCEPTION, payload={}))
+    assert len(r.resolved_domain_types) == 2
+    assert len(r.attempts) == 2
+    assert all(a.status == DomainDeliveryStatus.OK for a in r.attempts)
+
+
+def test_max_targets_per_broadcast() -> None:
+    bus = NeuroBus(max_targets_per_broadcast=1)
+    _Spy(bus, DomainType.COMPILATION)
+    _Spy(bus, DomainType.SECURITY_VERIFICATION)
+    with pytest.raises(BroadcastTargetLimitExceeded):
+        bus.broadcast(Signal(source_domain=DomainType.SYMBOL_PERCEPTION, payload={}))
+
+
+def test_loop_guard_same_fingerprint() -> None:
+    class Bouncer(NeuralDomain):
+        def __init__(self, bus, dtype: DomainType, bounce_to: DomainType) -> None:
+            self._to = bounce_to
+            super().__init__(dtype, bus)
+
+        def process_signal(self, signal):  # type: ignore[no-untyped-def]
+            return Signal(
+                name=signal.name,
+                correlation_id=signal.correlation_id,
+                source_domain=self.domain_type,
+                target_domains=[self._to],
+                payload=signal.payload,
+            )
+
+    bus = NeuroBus(loop_guard_max_same_fingerprint=2)
+    Bouncer(bus, DomainType.COMPILATION, DomainType.SECURITY_VERIFICATION)
+    Bouncer(bus, DomainType.SECURITY_VERIFICATION, DomainType.COMPILATION)
+    sig = Signal(
+        name="ping",
+        correlation_id="one-chain",
+        source_domain=DomainType.SYMBOL_PERCEPTION,
+        target_domains=[DomainType.COMPILATION],
+        payload={},
+    )
+    with pytest.raises(BroadcastLoopGuardTriggered):
+        bus.broadcast(sig)
+
+
+def test_on_partial_failure_hook() -> None:
+    bag: list = []
+
+    bus = NeuroBus(
+        delivery_error_policy=DeliveryErrorPolicy.ISOLATE,
+        hooks=BusHooks(
+            on_partial_failure=lambda s, res: bag.append(
+                (s.signal_id, res.partial_success(), len(res.failures))
+            )
+        ),
+    )
+    _Spy(bus, DomainType.COMPILATION)
+    _Spy(bus, DomainType.SECURITY_VERIFICATION, fail=True)
+    bus.broadcast(Signal(source_domain=DomainType.SYMBOL_PERCEPTION, payload={}))
+    assert len(bag) == 1
+    assert bag[0][1] is True
+    assert bag[0][2] == 1
+
+
+def test_signal_derive_and_domain_inherit_trace() -> None:
+    parent = Signal(name="topic", correlation_id="corr-1")
+    attach_trace_to_signal(parent)
+    child = parent.derive(name="child_topic", payload={"x": 2})
+    assert child.causation_id == parent.signal_id
+    assert child.correlation_id == parent.correlation_id
+    assert child.trace_id == parent.trace_id
+
+    class Forward(NeuralDomain):
+        def __init__(self, bus, dtype: DomainType, to: DomainType) -> None:
+            self._to = to
+            super().__init__(dtype, bus)
+
+        def process_signal(self, signal):  # type: ignore[no-untyped-def]
+            return Signal(target_domains=[self._to], payload={"n": 1})
+
+    class SpyRecv(NeuralDomain):
+        def __init__(self, bus, dtype: DomainType) -> None:
+            self.received: list = []
+            super().__init__(dtype, bus)
+
+        def process_signal(self, signal):  # type: ignore[no-untyped-def]
+            self.received.append(signal)
+            return None
+
+    bus = NeuroBus()
+    Forward(bus, DomainType.COMPILATION, DomainType.SECURITY_VERIFICATION)
+    sec = SpyRecv(bus, DomainType.SECURITY_VERIFICATION)
+    bus.broadcast(
+        Signal(
+            name="in",
+            correlation_id="trace-me",
+            source_domain=DomainType.SYMBOL_PERCEPTION,
+            target_domains=[DomainType.COMPILATION],
+            payload={},
+        )
+    )
+    assert len(sec.received) == 1
+    assert sec.received[0].correlation_id == "trace-me"
+    assert sec.received[0].causation_id is not None
+
+
+def test_serialize_broadcasts_no_interleave() -> None:
+    import threading
+
+    order: list[int] = []
+    lock = threading.Lock()
+
+    class Tag(NeuralDomain):
+        def __init__(self, bus, dtype: DomainType, tag: int) -> None:
+            self._tag = tag
+            super().__init__(dtype, bus)
+
+        def process_signal(self, signal):  # type: ignore[no-untyped-def]
+            with lock:
+                order.append(self._tag)
+            return None
+
+    bus = NeuroBus(serialize_broadcasts=True)
+    Tag(bus, DomainType.COMPILATION, 1)
+    Tag(bus, DomainType.SECURITY_VERIFICATION, 2)
+
+    def run(tag: int) -> None:
+        bus.broadcast(
+            Signal(
+                source_domain=DomainType.SYMBOL_PERCEPTION,
+                target_domains=[DomainType.COMPILATION, DomainType.SECURITY_VERIFICATION],
+                payload={"t": tag},
+            )
+        )
+
+    t1 = threading.Thread(target=run, args=(1,))
+    t2 = threading.Thread(target=run, args=(2,))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    assert len(order) == 4
