@@ -1,12 +1,13 @@
-# Neuro-DDD: Neuro-Inspired Domain-Driven Design
+# XC Mamba Compiler
 
 <div align="center">
 
-🧠 **类脑神经 DDD 架构框架** | 仿生人脑神经元工作机制的下一代领域驱动设计
+🤖 **AI驱动的XC语言编译器** | XC语言 → Transformer/Mamba → RISC-V64 Assembly
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Async](https://img.shields.io/badge/Async-Await-green?style=flat-square)](https://docs.python.org/3/library/asyncio.html)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](https://opensource.org/licenses/MIT)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange?style=flat-square&logo=pytorch)](https://pytorch.org)
+[![RISC-V](https://img.shields.io/badge/RISC--V-64--bit-purple?style=flat-square)](https://riscv.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](https://opensource.org/licenses/MIT)
 
 </div>
 
@@ -14,291 +15,263 @@
 
 ## 📖 简介
 
-Neuro-DDD 是一个创新的软件架构框架，灵感来源于人脑神经元的工作机制。它通过**显意识/潜意识双模式处理**、**异步广播通信**和**并发调度**，为复杂的多领域协同场景提供高性能、松耦合的解决方案。
+XC Mamba Compiler 是一个纯AI驱动的编译器项目，将自研的XC编程语言编译为RISC-V64汇编代码。项目采用Transformer和Mamba架构，实现从源代码到目标代码的端到端生成。
 
-### 核心问题解决
+### 核心特性
 
-传统 DDD（领域驱动设计）在复杂系统中面临以下挑战：
-- ❌ 领域间紧耦合，调用链复杂
-- ❌ 同步阻塞导致性能瓶颈
-- ❌ 错误传播和恢复机制不完善
-- ❌ 难以平衡响应速度和处理准确性
-
-Neuro-DDD 通过仿生人脑的神经信号传递机制，实现：
-- ✅ **发布/订阅模式**的广播通信
-- ✅ **System 1 & System 2** 双模式处理（潜意识快速响应 + 显意识精确推理）
-- ✅ **异步并发**架构，多领域同时处理
-- ✅ **自愈能力**，三级错误反馈 + 熔断器模式
-
----
-
-## 🚀 核心特性
-
-### 1. 显意识/潜意识双模式处理
-
-```python
-from neuro_ddd_software import DualModeStrategy, DualModeEngine
-
-# 快速优先策略：先尝试潜意识快速处理，失败后降级到显意识
-engine = DualModeEngine(strategy=DualModeStrategy.FAST_FIRST)
-
-# 处理信号，潜意识模式 <10ms，显意识模式 ~100ms
-result = await engine.process(signal, context, handler)
-```
-
-| 模式 | 延迟 | 准确性 | 使用场景 |
-|------|------|--------|----------|
-| **潜意识 (Subconscious)** | <10ms | 85-95% | 模式匹配、缓存查询、直觉决策 |
-| **显意识 (Conscious)** | 100ms~ | 99%+ | 复杂计算、逻辑推理、验证确认 |
-
-### 2. 异步广播通信
-
-```python
-from neuro_ddd_software import AsyncNeuroBus, NeuroSignal
-
-async with AsyncNeuroBus() as bus:
-    # 注册领域
-    bus.register("order_domain", order_handler)
-    bus.register("inventory_domain", inventory_handler)
-    bus.register("payment_domain", payment_handler)
-    
-    # 广播信号，所有领域同时接收并处理
-    signal = NeuroSignal.create_request(
-        signal_type="order.created",
-        payload={"order_id": "12345"},
-        target_domains=["order", "inventory", "payment"]
-    )
-    
-    # 并行投递，非阻塞
-    results = await bus.broadcast(signal, wait_for_results=True)
-```
-
-### 3. 四种并发策略
-
-```python
-from neuro_ddd_software import ConcurrencyStrategy, ConcurrentScheduler
-
-scheduler = ConcurrentScheduler()
-
-# 并行执行：所有任务同时运行
-await scheduler.execute(tasks, strategy=ConcurrencyStrategy.PARALLEL)
-
-# 顺序执行：按顺序一个接一个
-await scheduler.execute(tasks, strategy=ConcurrencyStrategy.SEQUENTIAL)
-
-# 流水线：阶段间并行
-await scheduler.execute(tasks, strategy=ConcurrencyStrategy.PIPELINE)
-
-# FAN_OUT/FAN_IN：分发 - 聚合模式
-results = await scheduler.execute(tasks, strategy=ConcurrencyStrategy.FAN_OUT)
-aggregated = scheduler.fan_in(results)
-```
-
-### 4. 错误反馈系统
-
-```python
-from neuro_ddd_software import ErrorFeedbackSystem, ErrorSeverity
-
-feedback_system = ErrorFeedbackSystem()
-
-# 即时反馈：立即重试
-await feedback_system.report_error(error, severity=ErrorSeverity.IMMEDIATE)
-
-# 延迟反馈：稍后重试
-await feedback_system.report_error(error, severity=ErrorSeverity.DELAYED)
-
-# 批量反馈：累积后统一处理
-await feedback_system.report_error(error, severity=ErrorSeverity.BATCH)
-```
-
-### 5. 神经反射弧
-
-```python
-from neuro_ddd_software import ReflexArc
-
-# 超快速响应 <1ms，绕过常规处理流程
-reflex = ReflexArc()
-reflex.register_reflex("emergency.stop", emergency_handler)
-
-# 触发反射，直接执行处理器
-await reflex.trigger("emergency.stop", payload)
-```
-
----
-
-## 📦 安装
-
-```bash
-pip install neuro-ddd
-```
-
-或者从源码安装：
-
-```bash
-git clone https://github.com/42433422/neuro-ddd.git
-cd neuro-ddd
-pip install -e .
-```
-
----
-
-## 🔧 快速开始
-
-### 示例：电商订单系统
-
-```python
-import asyncio
-from neuro_ddd_software import (
-    AsyncNeuroBus, NeuroSignal, SoftwareDomain,
-    ProcessingMode, ProcessingResult
-)
-
-# 1. 定义领域
-class OrderDomain(SoftwareDomain):
-    async def handle_signal(self, signal: NeuroSignal) -> ProcessingResult:
-        if signal.signal_type == "order.created":
-            print(f"处理订单：{signal.payload}")
-            return ProcessingResult.success()
-        return ProcessingResult.skip()
-
-class InventoryDomain(SoftwareDomain):
-    async def handle_signal(self, signal: NeuroSignal) -> ProcessingResult:
-        if signal.signal_type == "order.created":
-            print(f"扣减库存：{signal.payload}")
-            return ProcessingResult.success()
-        return ProcessingResult.skip()
-
-class PaymentDomain(SoftwareDomain):
-    async def handle_signal(self, signal: NeuroSignal) -> ProcessingResult:
-        if signal.signal_type == "order.created":
-            print(f"处理支付：{signal.payload}")
-            return ProcessingResult.success()
-        return ProcessingResult.skip()
-
-# 2. 创建总线并注册领域
-async def main():
-    async with AsyncNeuroBus() as bus:
-        bus.register("order", OrderDomain("order"))
-        bus.register("inventory", InventoryDomain("inventory"))
-        bus.register("payment", PaymentDomain("payment"))
-        
-        # 3. 广播订单创建信号
-        signal = NeuroSignal.create_request(
-            signal_type="order.created",
-            payload={"order_id": "12345", "amount": 99.99}
-        )
-        
-        # 4. 所有领域同时处理
-        results = await bus.broadcast(signal, wait_for_results=True)
-        
-        print(f"处理完成：{len(results)} 个领域响应")
-
-asyncio.run(main())
-```
-
-**输出：**
-```
-处理订单：{'order_id': '12345', 'amount': 99.99}
-扣减库存：{'order_id': '12345', 'amount': 99.99}
-处理支付：{'order_id': '12345', 'amount': 99.99}
-处理完成：3 个领域响应
-```
-
----
-
-## 📊 性能对比
-
-### 场景 1：简单 CRUD 操作
-
-| 框架 | 延迟 | 说明 |
-|------|------|------|
-| 传统 DDD | 0.001ms | 直接方法调用 |
-| Neuro-DDD | 0.006ms | 信号广播（+0.005ms 开销） |
-
-### 场景 2：多领域协同（3 个领域）
-
-| 框架 | 延迟 | 说明 |
-|------|------|------|
-| 传统 DDD | 16.113ms | 顺序调用 |
-| Neuro-DDD | 0.002ms | 并行广播 |
-| **加速比** | **8305x** | ⚡️ |
-
-### 场景 3：双模式处理
-
-| 模式 | 延迟 | 准确率 |
-|------|------|--------|
-| 潜意识 | 8ms | 92% |
-| 显意识 | 120ms | 99.8% |
-| 双模式（FAST_FIRST） | 12ms | 98.5% |
+- 🎯 **纯AI编译** - 无传统编译器后端，AI模型直接生成目标代码
+- ⚡ **自研RISC-V Oracle** - 独立规则编译器生成训练标签，不依赖GCC/Clang
+- 🔄 **多目标代码生成** - 支持 C / Rust / Mojo / RISC-V64 汇编输出
+- 🧪 **可复现实验** - 完整的数据生成、训练、评估流程
+- 📊 **层级注意力架构** - 针对程序结构优化的Transformer/Mamba设计
 
 ---
 
 ## 🏗️ 架构概览
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   AsyncNeuroBus                         │
-│              (异步神经总线 - 广播中枢)                   │
-└─────────────────────────────────────────────────────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          │               │               │
-          ▼               ▼               ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  Order Domain   │ │ Inventory Domain│ │ Payment Domain  │
-│                 │ │                 │ │                 │
-│  ┌───────────┐  │ │  ┌───────────┐  │ │  ┌───────────┐  │
-│  │Conscious  │  │ │  │Conscious  │  │ │  │Conscious  │  │
-│  │Processor  │  │ │  │Processor  │  │ │  │Processor  │  │
-│  └───────────┘  │ │  └───────────┘  │ │  └───────────┘  │
-│  ┌───────────┐  │ │  ┌───────────┐  │ │  ┌───────────┐  │
-│  │Subconscious│ │ │  │Subconscious│ │ │  │Subconscious│ │
-│  │Processor  │  │ │  │Processor  │  │ │  │Processor  │  │
-│  └───────────┘  │ │  └───────────┘  │ │  └───────────┘  │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        XC AI Compiler                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   XC Source ──► [Lexer] ──► [Parser] ──► AST                   │
+│                                              │                   │
+│                                              ▼                   │
+│   ┌────────────────────────────────────────────────────────┐   │
+│   │                   数据工厂 (Data Factory)                │   │
+│   │  ┌─────────────┐    ┌─────────────────────────────┐  │   │
+│   │  │ Random XC   │───►│ RISC-V64 Oracle (规则编译器)  │  │   │
+│   │  │ Generator   │    │ 生成Ground Truth汇编         │  │   │
+│   │  └─────────────┘    └─────────────────────────────┘  │   │
+│   └────────────────────────────────────────────────────────┘   │
+│                         │                                        │
+│                         ▼                                        │
+│   ┌────────────────────────────────────────────────────────┐   │
+│   │           Hierarchical Transformer / Mamba             │   │
+│   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │   │
+│   │  │ Token    │  │Function  │  │Program   │  │Assembly│  │   │
+│   │  │ Embedding│  │Attention │  │Attention│  │Decoder │  │   │
+│   │  └──────────┘  └──────────┘  └──────────┘  └────────┘  │   │
+│   └────────────────────────────────────────────────────────┘   │
+│                         │                                        │
+│                         ▼                                        │
+│   Output: Assembly / C / Rust / Mojo                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 📁 项目结构
+
+```
+xc-mamba-compiler/
+├── compiler/              # 编译器核心模块
+│   ├── xc_compiler.py     # XC语言编译器 (XC → C/Rust/Mojo)
+│   ├── x_compiler.py      # 简化版XC编译器
+│   ├── xc_preprocess.py   # 预处理模块
+│   ├── xc_asm_oracle.py   # RISC-V64 Oracle (规则编译器)
+│   ├── xc_asm_config.py   # 工具链配置
+│   ├── xc_translate.py    # AI翻译推理脚本
+│   ├── x_language.py      # 项目启动器
+│   ├── jncc_*.py          # JNCC评估与优化模块
+│   └── AI_Compiler_Roadmap.md
+│
+├── dataset/               # 数据集目录
+│   ├── dataset_builder.py
+│   ├── xc_asm_synth.py
+│   └── generate_xc_dataset.py
+│
+├── training/              # 训练脚本
+│   ├── train_xc_mamba.py  # Mamba架构训练
+│   ├── train_xc_translator.py
+│   ├── train_xc_lora.py
+│   └── xc_asm_rlhf.py     # RLHF微调
+│
+├── inference/             # 推理模块
+│   ├── translator.py
+│   └── x_translate.py
+│
+├── tools/                 # 工具脚本
+│   ├── jncc_research_eval.py
+│   ├── benchmark_neuro_ddd_performance.py
+│   └── docker_verify_riscv_rvv.sh
+│
+├── tests/                 # 测试用例
+│   └── test_jncc_smoke.py
+│
+├── wiki/                  # 项目文档
+│   ├── Architecture.md
+│   ├── XC_Language.md
+│   └── Experiments.md
+│
+└── reports/               # 实验报告
+    └── neuro_ddd_benchmark.json
+```
+
+---
+
+## 🚀 快速开始
+
+### 1. 安装依赖
+
+```bash
+pip install torch transformers peft datasets unsloth
+```
+
+### 2. 编译XC代码 (传统方式)
+
+```bash
+# XC → C
+python compiler/xc_compiler.py --input examples/hello.x --target c
+
+# XC → Rust
+python compiler/xc_compiler.py --input examples/hello.x --target rust
+
+# XC → RISC-V64 汇编
+python compiler/xc_compiler.py --input examples/hello.x --target riscv64
+```
+
+### 3. 使用AI翻译器
+
+```bash
+# 交互模式
+python inference/xc_translate.py --demo
+
+# 文件翻译
+python inference/xc_translate.py --input code.x --source x --target rust
+```
+
+---
+
+## 📖 XC 语言示例
+
+```xc
+# 程序入口
+# {
+    $x: int = 10
+    $y: int = 20
+    $sum: int = x + y
+
+    ! "x + y = ", sum
+
+    % add(a: int, b: int) -> int {
+        ^ a + b
+    }
+
+    ! add(3, 5)
+
+    ? (x > y) {
+        ! "x > y"
+    } ?: {
+        ! "x <= y"
+    }
+
+    ~i: int = 0; i < 5; i = i + 1 {
+        ! i
+    }
+}
+```
+
+### 语法速查
+
+| XC符号 | 含义 | 示例 |
+|--------|------|------|
+| `# { }` | 程序入口 | `# { ... }` |
+| `$x` | 变量声明 | `$x = 10` |
+| `$x: int` | 显式类型 | `$x: int = 10` |
+| `@PI` | 常量 | `@PI = 3.14` |
+| `% func` | 函数定义 | `% add(a, b) { ... }` |
+| `^` | 返回 | `^ a + b` |
+| `? (cond) { }` | 条件 | `? (x > 0) { ... }` |
+| `?: { }` | else | `?: { ... }` |
+| `?? (cond) { }` | else if | `?? (x < 0) { ... }` |
+| `@ (cond) { }` | while循环 | `@ (i < 10) { ... }` |
+| `~i=0; i<10; i++ { }` | for循环 | `~i=0; i<10; i=i+1 { ... }` |
+| `>` | break | `>` |
+| `<` | continue | `<` |
+| `! x` | 打印 | `! "hello"` |
+| `& Point { }` | 结构体 | `& Point { x: int; y: int; }` |
+
+---
+
+## 🔬 训练指南
+
+### 步骤1: 生成训练数据
+
+```python
+from compiler.xc_asm_oracle import compile_xc_to_asm_riscv64
+
+# 生成 XC ↔ RISC-V 配对数据
+def generate_training_pair():
+    xc_code = generate_random_xc_program()
+    asm_code = compile_xc_to_asm_riscv64(xc_code)
+    return {"xc": xc_code, "asm": asm_code}
+```
+
+### 步骤2: 微调模型
+
+```bash
+python training/train_xc_mamba.py \
+    --model qwen2.5-coder-1.5b \
+    --epochs 3 \
+    --batch_size 4
+```
+
+### 步骤3: 评估
+
+```bash
+python tools/jncc_research_eval.py --model models/xc-translator
+```
+
+---
+
+## 📊 技术规格
+
+| 组件 | 实现 |
+|------|------|
+| 词法分析器 | 正则表达式 + 状态机 |
+| 语法分析器 | 递归下降解析器 |
+| AST | dataclass 树结构 |
+| 代码生成器 | C / Rust / Mojo / RISC-V64 |
+| Oracle | RV64G 整数子集 |
+| 目标ISA | RISC-V 64-bit (RV64GC) |
+| AI架构 | Transformer / Mamba |
+
+---
+
+## 🎯 路线图
+
+- [x] XC语言编译器 (XC → C/Rust/Mojo)
+- [x] RISC-V64 Oracle 规则后端
+- [x] 数据生成器 (100K+ 训练样本)
+- [x] Hierarchical Transformer 实现
+- [x] Mamba架构支持
+- [ ] RLHF 微调
+- [ ] 性能优化与量化
+- [ ] RISC-V Vector Extension (RVV) 优化
 
 ---
 
 ## 📚 文档
 
-- [📖 完整软件框架文档](neuro_ddd_software/SOFTWARE_FRAMEWORK.md) - 900+ 行详细技术文档
-- [🧠 架构设计说明](.trae/specs/neuro-ddd-architecture/spec.md)
-- [📝 实现任务列表](.trae/specs/neuro-ddd-architecture/tasks.md)
+- [🏛️ 架构文档](wiki/Architecture.md)
+- [📝 XC语言规范](XC_GRAMMAR_SPEC.md)
+- [📊 实验记录](wiki/Experiments.md)
+- [🔧 安装指南](wiki/Installation.md)
+- [🛣️ 技术路线图](compiler/AI_Compiler_Roadmap.md)
 
 ---
 
 ## 🧪 测试
 
 ```bash
-# 运行功能测试
-pytest test_neuro_software.py -v
+# 运行单元测试
+pytest tests/ -v
 
-# 运行性能基准测试
-python benchmark_simple.py
+# 运行RISC-V验证
+bash tools/docker_verify_riscv_rvv.sh
 ```
-
-### 测试结果
-
-```
-✅ 功能测试：8/8 通过 (100%)
-✅ 性能测试：并行场景 8305x 加速
-```
-
----
-
-## 🎯 使用场景
-
-### ✅ 适合的场景
-- 多领域协同的复杂业务系统
-- 需要高并发、低延迟的场景
-- 需要快速响应和精确处理平衡的场景
-- 事件驱动的架构设计
-
-### ❌ 不适合的场景
-- 简单的 CRUD 应用
-- 单领域、无协同的系统
-- 对性能要求不高的后台任务
 
 ---
 
@@ -320,11 +293,19 @@ python benchmark_simple.py
 
 ---
 
+## 📚 参考
+
+- [Transformer: Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- [Mamba: Linear-Time Sequence Modeling](https://arxiv.org/abs/2312.00752)
+- [CodeGen: Open Code Generation](https://arxiv.org/abs/2203.13474)
+- [RISC-V ISA Specification](https://riscv.org/technical/specifications/)
+
+---
+
 <div align="center">
 
-**Neuro-DDD** - 让软件架构更像人脑 🧠
+**XC Mamba Compiler** - AI驱动的下一代编译器
 
 Made with ❤️ by [42433422](https://github.com/42433422)
 
 </div>
-
